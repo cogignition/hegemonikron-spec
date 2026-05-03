@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hegemonikron.cogignition.cloud/v1/sources.schema.json",
+  "title": "Hegemonikron Sources Configuration",
+  "description": "User-side configuration that maps canonical metrics to data-source adapters. Lives at ~/.config/hegemonikron/sources.yaml or similar; this is environment-specific and never committed to a public catalog.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "apiVersion": {
+      "const": "hegemonikon.cogignition.cloud/v1",
+      "description": "Optional but recommended for forward-compatibility."
+    },
+    "kind": {
+      "const": "Sources"
+    },
+    "default_adapter": {
+      "type": "string",
+      "description": "Adapter used for any metric not explicitly routed elsewhere.",
+      "examples": ["healthkit", "influxdb", "manual-csv", "mock"]
+    },
+    "adapters": {
+      "type": "object",
+      "description": "Map of adapter name -> configuration for that adapter instance.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "metrics": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional whitelist: which canonical metrics this adapter instance should fulfill. If absent, the adapter handles every metric it natively supports."
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Adapter-specific endpoint URL (HTTP for InfluxDB, file path for CSV, etc.)."
+          },
+          "auth_env": {
+            "type": "string",
+            "description": "Name of environment variable holding the auth token. Never the literal token."
+          },
+          "config": {
+            "type": "object",
+            "description": "Adapter-specific configuration (bucket, org, query templates, file paths, etc.). See adapters/<name>.md."
+          }
+        }
+      }
+    },
+    "metric_overrides": {
+      "type": "object",
+      "description": "Per-metric routing overrides. Use sparingly — prefer adapter-level metric whitelists.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["adapter"],
+        "additionalProperties": true,
+        "properties": {
+          "adapter": {
+            "type": "string",
+            "description": "Adapter name to use for this specific metric."
+          }
+        }
+      }
+    }
+  },
+  "anyOf": [
+    { "required": ["default_adapter"] },
+    { "required": ["adapters"] }
+  ]
+}

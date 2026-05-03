@@ -1,0 +1,215 @@
+# Hegemonikron canonical metric vocabulary.
+#
+# Protocols speak this language. Adapters translate it into native
+# queries against their backing store. New metrics land via PR — include
+# rationale in the description.
+#
+# Each metric declares:
+#   description     — what it represents
+#   kind            — scalar | aggregate | event
+#   unit            — canonical unit; adapters convert from native
+#   aggregations    — which aggregations protocols may request
+#   windows         — which time windows protocols may request
+#                     (default: any window the spec allows)
+#   typical_range   — sanity bounds for human-readable rendering
+#                     (not enforced; helps detect adapter unit bugs)
+
+apiVersion: hegemonikron.cogignition.cloud/v1
+kind: Vocabulary
+
+metrics:
+
+  # ===== Autonomic / cardiovascular =====
+
+  hrv:
+    description: Heart rate variability (RMSSD or SDNN, depending on adapter)
+    kind: scalar
+    unit: ms
+    aggregations: [latest, mean, median, min, max]
+    typical_range: [10, 100]
+
+  resting_heart_rate:
+    description: Resting heart rate
+    kind: scalar
+    unit: bpm
+    aggregations: [latest, mean]
+    typical_range: [40, 100]
+
+  heart_rate:
+    description: Instantaneous heart rate
+    kind: scalar
+    unit: bpm
+    aggregations: [latest, mean, min, max]
+    typical_range: [30, 220]
+
+  # ===== Sleep =====
+
+  sleep_total:
+    description: Total sleep time per night (asleep stages summed)
+    kind: scalar
+    unit: hours
+    aggregations: [latest, mean, median]
+    typical_range: [0, 12]
+
+  sleep_deep:
+    description: Deep / slow-wave sleep duration
+    kind: scalar
+    unit: hours
+    aggregations: [latest, mean]
+    typical_range: [0, 4]
+
+  sleep_rem:
+    description: REM sleep duration
+    kind: scalar
+    unit: hours
+    aggregations: [latest, mean]
+    typical_range: [0, 4]
+
+  sleep_core:
+    description: Core / light sleep duration (Apple Health stage)
+    kind: scalar
+    unit: hours
+    aggregations: [latest, mean]
+    typical_range: [0, 8]
+
+  sleep_awake:
+    description: Time awake during the sleep window
+    kind: scalar
+    unit: hours
+    aggregations: [latest, mean]
+    typical_range: [0, 4]
+
+  sleep_in_bed:
+    description: Time in bed (asleep + awake)
+    kind: scalar
+    unit: hours
+    aggregations: [latest, mean]
+    typical_range: [0, 14]
+
+  # ===== Workouts =====
+
+  workout:
+    description: Workout sessions (events with type, duration, HR series, energy)
+    kind: event
+    fields:
+      type:                    { unit: string }
+      duration:                { unit: seconds }
+      active_energy_burned:    { unit: kcal }
+      hr_avg:                  { unit: bpm }
+      hr_max:                  { unit: bpm }
+      hr_min:                  { unit: bpm }
+      intensity:               { unit: count }
+    aggregations: [latest, list, count, sum]
+
+  # ===== Body composition =====
+
+  body_mass:
+    description: Body weight
+    kind: scalar
+    unit: kg
+    aggregations: [latest, mean]
+    typical_range: [30, 250]
+
+  body_fat_percentage:
+    description: Body fat percentage
+    kind: scalar
+    unit: percent
+    aggregations: [latest, mean]
+    typical_range: [3, 60]
+
+  body_mass_index:
+    description: BMI
+    kind: scalar
+    unit: count
+    aggregations: [latest]
+    typical_range: [12, 60]
+
+  # ===== Activity =====
+
+  step_count:
+    description: Daily step count
+    kind: aggregate
+    unit: count
+    aggregations: [latest, sum, mean]
+    typical_range: [0, 50000]
+
+  active_energy:
+    description: Active calories burned
+    kind: aggregate
+    unit: kcal
+    aggregations: [sum, mean]
+    typical_range: [0, 5000]
+
+  basal_energy:
+    description: Basal / resting calories burned
+    kind: aggregate
+    unit: kcal
+    aggregations: [sum, mean]
+    typical_range: [800, 4000]
+
+  # ===== Nutrition =====
+
+  dietary_energy:
+    description: Total dietary energy intake
+    kind: aggregate
+    unit: kcal
+    aggregations: [sum, mean]
+    typical_range: [0, 6000]
+
+  protein:
+    description: Protein intake
+    kind: aggregate
+    unit: g
+    aggregations: [sum, mean]
+    typical_range: [0, 400]
+
+  carbohydrates:
+    description: Carbohydrate intake
+    kind: aggregate
+    unit: g
+    aggregations: [sum, mean]
+    typical_range: [0, 800]
+
+  total_fat:
+    description: Total fat intake
+    kind: aggregate
+    unit: g
+    aggregations: [sum, mean]
+    typical_range: [0, 300]
+
+  fiber:
+    description: Dietary fiber intake
+    kind: aggregate
+    unit: g
+    aggregations: [sum, mean]
+    typical_range: [0, 100]
+
+  dietary_water:
+    description: Water intake
+    kind: aggregate
+    unit: ml
+    aggregations: [sum, mean]
+    typical_range: [0, 6000]
+
+# Aggregations the spec defines (adapters declare which they implement
+# per metric — see adapters/README.md):
+aggregations:
+  - latest      # most recent value
+  - mean        # arithmetic mean across window
+  - median      # median across window
+  - min         # minimum value across window
+  - max         # maximum value across window
+  - sum         # sum across window
+  - count       # number of points in window
+  - list        # raw list of values (events: full event list)
+
+# Windows the spec defines (adapters MUST translate these to backend
+# semantics; the strings here are the canonical surface):
+windows:
+  symbolic:
+    - today              # midnight-to-now in user's local timezone
+    - last_night         # most recent sleep window
+    - last_workout       # most recent workout event
+  relative:
+    pattern: '^\d+[hdwm]$'   # e.g., 14d, 24h, 4w, 6m
+    examples: [1h, 24h, 7d, 14d, 4w, 6m]

@@ -1,0 +1,22 @@
+# Sources config: self-hosted InfluxDB (via Health Auto Export ingest).
+#
+# All metrics flow through one bucket. Token is held in an environment
+# variable; the literal value is never in the file. Endpoint may point at
+# a LAN address (Path A available via kubectl exec) or a Cloudflare
+# tunnel (Path B via HTTPS) — see adapters/influxdb.md.
+
+apiVersion: hegemonikon.cogignition.cloud/v1
+kind: Sources
+
+default_adapter: influxdb
+
+adapters:
+  influxdb:
+    endpoint: ${HEGEMONIKRON_INFLUX_URL}
+    auth_env: INFLUXDB_TOKEN
+    config:
+      bucket: health
+      org: kenning
+      timezone: America/New_York
+      hrv_kind: SDNN
+      path: B   # A = kubectl exec; B = HTTPS API. Default: B if endpoint is https.

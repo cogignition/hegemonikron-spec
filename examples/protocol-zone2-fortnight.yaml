@@ -1,0 +1,152 @@
+# Example protocol — fully worked, validates against schema/protocol.schema.json.
+#
+# This is a sample published into the spec repo as a reference. It
+# encodes a Zone 2 base-building protocol with HRV-gated intensity,
+# referencing the canonical vocabulary. The catalog at
+# cogignition/protocols holds the live, author-maintained version.
+
+apiVersion: hegemonikron.cogignition.cloud/v1
+kind: Protocol
+
+metadata:
+  id: zone2-fortnight
+  title: "Zone 2 Base with Fortnight HRV Gate"
+  author: cogignition
+  license: CC-BY-4.0
+  created: "2026-05-03"
+  version: "0.1"
+  description: >
+    14-day rolling HRV baseline gates above-Zone-2 work. Zone 4 / Zone 5
+    sessions are unlocked only when the day's HRV is within 85% of the
+    fortnight mean and last night's sleep is at least 6 hours.
+    Two-a-days are permitted when the morning brief returns
+    full_protocol; the evening session is capped at Zone 3 regardless.
+
+    Built on Galpin / Norton periodization principles plus the carb
+    periodization framework (Impey et al. 2018, "Fuel for the Work
+    Required").
+  references:
+    - https://blog.cogignition.cloud/notes/2026-04-19-galpin-summary/
+    - https://protocols.cogignition.cloud/cogignition/zone2-fortnight/
+
+# Inputs declare what data the protocol reads. Each entry maps a local
+# name to a metric query against schema/vocabulary.yaml. The runtime
+# resolves these via the user's sources.yaml configuration.
+inputs:
+  hrv_today:
+    metric: hrv
+    aggregation: latest
+
+  hrv_baseline:
+    metric: hrv
+    aggregation: mean
+    window: 14d
+
+  sleep_hours:
+    metric: sleep_total
+    aggregation: latest
+
+  sleep_deep_hours:
+    metric: sleep_deep
+    aggregation: latest
+
+  resting_hr_today:
+    metric: resting_heart_rate
+    aggregation: latest
+
+  resting_hr_baseline:
+    metric: resting_heart_rate
+    aggregation: mean
+    window: 14d
+
+  workouts_today:
+    metric: workout
+    aggregation: list
+    window: today
+
+  protein_today:
+    metric: protein
+    aggregation: sum
+    window: today
+
+  carbohydrates_today:
+    metric: carbohydrates
+    aggregation: sum
+    window: today
+
+# Workflows describe triggerable behaviors. A runtime (skill, app, or
+# routine) consumes the cadence and inputs, evaluates rules, and
+# produces output. Each workflow is independent; protocols can mix many.
+workflows:
+
+  morning_readiness:
+    cadence: daily@07:30
+    inputs:
+      - hrv_today
+      - hrv_baseline
+      - sleep_hours
+      - resting_hr_today
+      - resting_hr_baseline
+    rules:
+      - if: "hrv_today / hrv_baseline < 0.85"
+        then:
+          intensity_cap: zone_2_only
+          dominant_signal: hrv
+          reason: "HRV below 85% of fortnight baseline"
+      - if: "sleep_hours < 6"
+        then:
+          intensity_cap: cap_at_zone_3
+          dominant_signal: sleep
+          reason: "Sleep deficit; recovery insufficient for above-aerobic work"
+      - if: "resting_hr_today > resting_hr_baseline + 5"
+        then:
+          intensity_cap: cap_at_zone_3
+          dominant_signal: rhr
+          reason: "Resting HR elevated >5bpm vs baseline; possible accumulating fatigue"
+      - else:
+          intensity_cap: full_protocol
+          dominant_signal: composite
+          reason: "All recovery markers within range"
+    output:
+      style: "morning brief, 3 sentences, no filler, no hedging"
+      mention:
+        - dominant_signal
+        - intensity_cap
+        - reason
+
+  evening_check:
+    cadence: daily@20:00
+    inputs:
+      - workouts_today
+      - protein_today
+      - carbohydrates_today
+    rules:
+      - if: "len(workouts_today) >= 2"
+        then:
+          status: two_a_day_complete
+          note: "Cap evening intensity at Zone 3 regardless of morning brief"
+      - if: "protein_today < 120"
+        then:
+          status: protein_gap
+          note: "Hit 120g protein target before sleep"
+      - else:
+          status: on_track
+    output:
+      style: "evening check-in, 2 sentences"
+      mention:
+        - status
+        - note
+
+  post_workout_debrief:
+    cadence: on_workout_complete
+    inputs:
+      - workouts_today
+      - hrv_today
+    rules:
+      - else:
+          phase: review
+    output:
+      style: "post-workout analysis, 4-6 sentences"
+      mention:
+        - workouts_today
+        - intensity_cap

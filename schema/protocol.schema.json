@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hegemonikron.cogignition.cloud/v1/protocol.schema.json",
+  "title": "Hegemonikron Protocol",
+  "description": "A coaching protocol: declared inputs against the canonical vocabulary, plus workflows that consume those inputs and produce coaching output.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "inputs", "workflows"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "hegemonikron.cogignition.cloud/v1"
+    },
+    "kind": {
+      "const": "Protocol"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["id", "title", "author"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Slug used in URLs. Lowercase, dash-separated."
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "author": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Author handle (matches the path namespace in the catalog)."
+        },
+        "description": { "type": "string" },
+        "license": {
+          "type": "string",
+          "enum": ["CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0", "Apache-2.0"],
+          "default": "CC-BY-4.0"
+        },
+        "references": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" }
+        },
+        "created": { "type": "string", "format": "date" },
+        "version": { "type": "string", "description": "Free-form version string (e.g., '1.0', '2026-05-03'). Distinct from apiVersion." }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Map of local input name -> metric query against the canonical vocabulary.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["metric"],
+        "additionalProperties": false,
+        "properties": {
+          "metric": {
+            "type": "string",
+            "description": "Canonical metric name from schema/vocabulary.yaml."
+          },
+          "aggregation": {
+            "type": "string",
+            "enum": ["latest", "mean", "median", "min", "max", "sum", "count", "list"],
+            "default": "latest"
+          },
+          "window": {
+            "type": "string",
+            "description": "Symbolic window (today, last_night, last_workout) or relative (e.g., 14d, 24h, 4w).",
+            "anyOf": [
+              { "enum": ["today", "last_night", "last_workout"] },
+              { "pattern": "^\\d+[hdwm]$" }
+            ]
+          },
+          "field": {
+            "type": "string",
+            "description": "For event-kind metrics: which subfield of the event to read (e.g., 'duration', 'hr_avg')."
+          }
+        }
+      }
+    },
+    "workflows": {
+      "type": "object",
+      "description": "Named workflows. Each describes a triggerable behavior with a cadence, inputs (referencing top-level inputs), rules, and output template.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["cadence"],
+        "additionalProperties": false,
+        "properties": {
+          "cadence": {
+            "type": "string",
+            "description": "When this workflow fires. Examples: 'daily@07:30', 'on_workout_complete', 'weekly@sunday@18:00', 'on_demand'.",
+            "examples": [
+              "daily@07:30",
+              "weekly@sunday@18:00",
+              "on_workout_complete",
+              "on_hrv_below_baseline",
+              "on_demand"
+            ]
+          },
+          "inputs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Names of top-level inputs this workflow uses."
+          },
+          "rules": {
+            "type": "array",
+            "description": "Ordered rule list. Each rule is { if, then } or { else } (terminal).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "if": { "type": "string", "description": "Boolean expression over inputs." },
+                "then": { "type": "object", "description": "Decision payload (free-form; consumed by output)." },
+                "else": { "type": "object", "description": "Default decision payload (terminal rule)." }
+              },
+              "oneOf": [
+                { "required": ["if", "then"] },
+                { "required": ["else"] }
+              ]
+            }
+          },
+          "output": {
+            "type": "object",
+            "description": "How to render the workflow's outcome. The runtime's edge model fills in prose given style/mention constraints.",
+            "additionalProperties": false,
+            "properties": {
+              "style": { "type": "string", "description": "Voice/length guidance, e.g., 'morning brief, 3 sentences, no filler'." },
+              "mention": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Names the output must reference (rule decision keys, input names)."
+              },
+              "template": {
+                "type": "string",
+                "description": "Optional explicit template with {{placeholders}}. If absent, runtime synthesizes from style + mention."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

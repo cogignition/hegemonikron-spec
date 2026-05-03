@@ -1,0 +1,49 @@
+# Sources config: HealthKit for autonomic + sleep + workouts, InfluxDB
+# for nutrition, manual CSV for body mass.
+#
+# Demonstrates that adapters compose — a protocol authored against the
+# canonical vocabulary doesn't see the seams.
+
+apiVersion: hegemonikon.cogignition.cloud/v1
+kind: Sources
+
+default_adapter: healthkit
+
+adapters:
+  healthkit:
+    metrics:
+      - hrv
+      - resting_heart_rate
+      - heart_rate
+      - sleep_total
+      - sleep_deep
+      - sleep_rem
+      - sleep_core
+      - sleep_awake
+      - sleep_in_bed
+      - workout
+      - step_count
+      - active_energy
+      - basal_energy
+
+  influxdb:
+    endpoint: ${HEGEMONIKRON_INFLUX_URL}
+    auth_env: INFLUXDB_TOKEN
+    metrics:
+      - dietary_energy
+      - protein
+      - carbohydrates
+      - total_fat
+      - fiber
+      - dietary_water
+    config:
+      bucket: health
+      org: kenning
+      timezone: America/New_York
+
+  manual-csv:
+    config:
+      timezone: America/New_York
+      files:
+        body_mass: ~/Documents/health/body-mass.csv
+        body_fat_percentage: ~/Documents/health/body-mass.csv

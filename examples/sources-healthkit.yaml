@@ -1,0 +1,13 @@
+# Sources config: HealthKit-only.
+#
+# Smallest possible setup — Apple Watch user, no homelab, no separate
+# nutrition tracker beyond what writes to HealthKit. Validates against
+# schema/sources.schema.json.
+#
+# Lives at: ~/.config/hegemonikron/sources.yaml
+# Never committed to a public catalog.
+
+apiVersion: hegemonikon.cogignition.cloud/v1
+kind: Sources
+
+default_adapter: healthkit
